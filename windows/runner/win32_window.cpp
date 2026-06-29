@@ -2,7 +2,6 @@
 
 #include <dwmapi.h>
 #include <flutter_windows.h>
-#include <windowsx.h>
 
 #include "resource.h"
 
@@ -126,9 +125,6 @@ bool Win32Window::Create(const std::wstring& title,
                          const Size& size) {
   Destroy();
 
-  const DWORD window_style =
-      WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-
   const wchar_t* window_class =
       WindowClassRegistrar::GetInstance()->GetWindowClass();
 
@@ -139,7 +135,7 @@ bool Win32Window::Create(const std::wstring& title,
   double scale_factor = dpi / 96.0;
 
   HWND window = CreateWindow(
-      window_class, title.c_str(), window_style,
+      window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);
@@ -147,13 +143,6 @@ bool Win32Window::Create(const std::wstring& title,
   if (!window) {
     return false;
   }
-
-  RECT window_rect;
-  GetWindowRect(window, &window_rect);
-  SetWindowPos(window, nullptr, window_rect.left, window_rect.top,
-               window_rect.right - window_rect.left,
-               window_rect.bottom - window_rect.top,
-               SWP_NOACTIVATE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
   UpdateTheme(window);
 
@@ -190,74 +179,6 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
-    case WM_NCCALCSIZE:
-      if (wparam == TRUE) {
-        auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
-        RECT* client_rect = &params->rgrc[0];
-        const UINT dpi = GetDpiForWindow(hwnd);
-        const int frame_x = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
-                            GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-        const int frame_y = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
-                            GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-
-        client_rect->left += frame_x;
-        client_rect->right -= frame_x;
-        client_rect->bottom -= frame_y;
-
-        if (IsZoomed(hwnd)) {
-          client_rect->top += frame_y;
-        }
-
-        return 0;
-      }
-      break;
-    case WM_NCHITTEST: {
-      const LRESULT hit = DefWindowProc(hwnd, message, wparam, lparam);
-      if (hit != HTCLIENT) {
-        return hit;
-      }
-
-      const UINT dpi = GetDpiForWindow(hwnd);
-      const int frame_x = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
-                          GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-      const int frame_y = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
-                          GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-
-      POINT cursor = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
-      RECT window_rect;
-      GetWindowRect(hwnd, &window_rect);
-
-      const bool left = cursor.x < window_rect.left + frame_x;
-      const bool right = cursor.x >= window_rect.right - frame_x;
-      const bool top = cursor.y < window_rect.top + frame_y;
-      const bool bottom = cursor.y >= window_rect.bottom - frame_y;
-
-      if (top && left) {
-        return HTTOPLEFT;
-      }
-      if (top && right) {
-        return HTTOPRIGHT;
-      }
-      if (bottom && left) {
-        return HTBOTTOMLEFT;
-      }
-      if (bottom && right) {
-        return HTBOTTOMRIGHT;
-      }
-      if (left) {
-        return HTLEFT;
-      }
-      if (right) {
-        return HTRIGHT;
-      }
-      if (top) {
-        return HTTOP;
-      }
-      if (bottom) {
-        return HTBOTTOM;
-      }
-      return HTCLIENT;
-    }
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();

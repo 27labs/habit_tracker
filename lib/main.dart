@@ -1,11 +1,23 @@
-import 'dart:ffi';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
+import 'package:window_manager/window_manager.dart';
 
 void main(List<String> arguments) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = const WindowOptions(
+    backgroundColor: Colors.transparent,
+    titleBarStyle: TitleBarStyle.hidden,
+  );
+
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+  });
+
   late final sqlite3.Database database;
 
   debugPrint(
